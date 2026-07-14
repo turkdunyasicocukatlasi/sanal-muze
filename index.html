@@ -3,18 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ortam SPZ Viewer</title>
+    <title>Ortam Panorama Viewer</title>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #0b0d10;
-        --panel: rgba(18, 21, 25, 0.78);
-        --panel-strong: rgba(18, 21, 25, 0.92);
-        --text: #f3f5f7;
-        --muted: #a8b0b8;
-        --line: rgba(255, 255, 255, 0.13);
-        --accent: #7dd3fc;
-        --accent-strong: #2dd4bf;
+        --panel: rgba(17, 20, 24, 0.78);
+        --panel-strong: rgba(17, 20, 24, 0.9);
+        --text: #f6f7f9;
+        --muted: #aab2bc;
+        --line: rgba(255, 255, 255, 0.15);
+        --accent: #38bdf8;
+        --active: #14b8a6;
         --danger: #fb7185;
         --shadow: rgba(0, 0, 0, 0.34);
       }
@@ -29,10 +28,7 @@
         height: 100%;
         margin: 0;
         overflow: hidden;
-        background:
-          radial-gradient(circle at 18% 12%, rgba(125, 211, 252, 0.16), transparent 26rem),
-          radial-gradient(circle at 88% 18%, rgba(45, 212, 191, 0.12), transparent 24rem),
-          linear-gradient(135deg, #090b0e 0%, #101418 48%, #07090c 100%);
+        background: #05070a;
         color: var(--text);
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -40,7 +36,7 @@
       }
 
       button,
-      select {
+      input {
         font: inherit;
       }
 
@@ -53,6 +49,11 @@
         display: block;
         width: 100%;
         height: 100%;
+        cursor: grab;
+      }
+
+      canvas.is-dragging {
+        cursor: grabbing;
       }
 
       .hud {
@@ -87,10 +88,10 @@
       .badge {
         flex: 0 0 auto;
         padding: 4px 8px;
-        border: 1px solid rgba(125, 211, 252, 0.35);
+        border: 1px solid rgba(56, 189, 248, 0.38);
         border-radius: 999px;
-        color: #d9f6ff;
-        background: rgba(125, 211, 252, 0.12);
+        color: #dff7ff;
+        background: rgba(56, 189, 248, 0.13);
         font-size: 12px;
         font-weight: 500;
       }
@@ -119,7 +120,7 @@
         width: 0%;
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+        background: linear-gradient(90deg, var(--accent), var(--active));
         transition: width 180ms ease;
       }
 
@@ -144,7 +145,7 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
-        width: min(760px, calc(100vw - 24px));
+        width: min(820px, calc(100vw - 24px));
         padding: 10px;
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -154,37 +155,53 @@
         backdrop-filter: blur(16px);
       }
 
-      .tool-button,
-      .tool-select {
+      .tool-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         min-height: 38px;
+        gap: 8px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.07);
+        cursor: pointer;
+      }
+
+      .tool-button:hover,
+      .zoom-control:hover {
+        border-color: rgba(56, 189, 248, 0.44);
+        background: rgba(255, 255, 255, 0.11);
+      }
+
+      .tool-button[aria-pressed="true"] {
+        border-color: rgba(20, 184, 166, 0.74);
+        background: rgba(20, 184, 166, 0.18);
+      }
+
+      .zoom-control {
+        display: flex;
+        align-items: center;
+        min-height: 38px;
+        gap: 9px;
+        padding: 0 11px;
         border: 1px solid var(--line);
         border-radius: 7px;
         color: var(--text);
         background: rgba(255, 255, 255, 0.07);
       }
 
-      .tool-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 12px;
-        cursor: pointer;
+      .zoom-control label,
+      .zoom-control output {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
       }
 
-      .tool-button:hover,
-      .tool-select:hover {
-        border-color: rgba(125, 211, 252, 0.44);
-        background: rgba(255, 255, 255, 0.11);
-      }
-
-      .tool-button[aria-pressed="true"] {
-        border-color: rgba(45, 212, 191, 0.72);
-        background: rgba(45, 212, 191, 0.18);
-      }
-
-      .tool-select {
-        max-width: 220px;
-        padding: 0 34px 0 10px;
+      .zoom-control input {
+        width: 144px;
+        accent-color: var(--active);
       }
 
       .hint {
@@ -194,7 +211,7 @@
         font-size: 12px;
       }
 
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .hud {
           right: 12px;
           width: auto;
@@ -205,228 +222,248 @@
         }
 
         .tool-button,
-        .tool-select {
-          flex: 1 1 136px;
+        .zoom-control {
+          flex: 1 1 144px;
+        }
+
+        .zoom-control {
           justify-content: center;
+        }
+
+        .zoom-control input {
+          width: min(34vw, 132px);
         }
       }
     </style>
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
-          "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
         }
       }
     </script>
   </head>
   <body>
-    <main id="app" aria-label="Ortam SPZ 3D görüntüleyici">
+    <main id="app" aria-label="Ortam PNG 360 panorama viewer">
       <section class="hud" aria-live="polite">
         <div class="hud-title">
-          <h1>ortam.spz</h1>
-          <span class="badge">SPZ</span>
+          <h1>ortam.png</h1>
+          <span class="badge">360 PNG</span>
         </div>
         <div class="meta">
-          <div>Dosya: <strong id="file-size">66.1 MB</strong></div>
-          <div>Durum: <strong id="status">Başlatılıyor</strong></div>
+          <div>Gorsel: <strong>3840 x 1920</strong></div>
+          <div>Durum: <strong id="status">Baslatiliyor</strong></div>
         </div>
-        <div class="progress" aria-label="Yükleme ilerlemesi">
+        <div class="progress" aria-label="Yukleme ilerlemesi">
           <div class="bar" id="progress-bar"></div>
         </div>
-        <div class="message" id="message">3D ortam yükleniyor...</div>
+        <div class="message" id="message">Panorama yukleniyor...</div>
       </section>
 
-      <div class="toolbar" aria-label="Görüntüleme kontrolleri">
-        <button class="tool-button" type="button" id="reset-view">Görünümü Sıfırla</button>
-        <button class="tool-button" type="button" id="auto-rotate" aria-pressed="false">Otomatik Döndür</button>
-        <button class="tool-button" type="button" id="toggle-grid" aria-pressed="true">Izgara</button>
-        <select class="tool-select" id="orientation" aria-label="Model yönü">
-          <option value="normal">Yön: Normal</option>
-          <option value="x180">Yön: X 180°</option>
-          <option value="y180">Yön: Y 180°</option>
-          <option value="z180">Yön: Z 180°</option>
-        </select>
-        <div class="hint">Sürükle: döndür · Tekerlek: yakınlaştır · Sağ tık: kaydır</div>
+      <div class="toolbar" aria-label="Gezinme kontrolleri">
+        <button class="tool-button" type="button" id="reset-view">Gorunumu Sifirla</button>
+        <button class="tool-button" type="button" id="auto-rotate" aria-pressed="false">Otomatik Don</button>
+        <button class="tool-button" type="button" id="fullscreen">Tam Ekran</button>
+        <div class="zoom-control">
+          <label for="zoom">Zoom</label>
+          <input id="zoom" type="range" min="35" max="90" value="75" step="1">
+          <output id="zoom-value" for="zoom">75</output>
+        </div>
+        <div class="hint">Surukle: etrafa bak · Tekerlek: zoom · Ok tuslari: don</div>
       </div>
     </main>
 
     <script type="module">
       import * as THREE from "three";
-      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-      import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 
-      const SPLAT_URL = "./ortam.spz";
-      const KNOWN_FILE_SIZE = 66070391;
+      const IMAGE_URL = "./ortam.png";
+      const IMAGE_SIZE = 12162577;
 
       const app = document.getElementById("app");
       const statusEl = document.getElementById("status");
       const messageEl = document.getElementById("message");
       const progressBar = document.getElementById("progress-bar");
-      const fileSizeEl = document.getElementById("file-size");
       const resetButton = document.getElementById("reset-view");
       const rotateButton = document.getElementById("auto-rotate");
-      const gridButton = document.getElementById("toggle-grid");
-      const orientationSelect = document.getElementById("orientation");
-
-      let splat = null;
-      let autoRotate = false;
-      let lastFrameTime = performance.now();
-
-      fileSizeEl.textContent = formatBytes(KNOWN_FILE_SIZE);
+      const fullscreenButton = document.getElementById("fullscreen");
+      const zoomInput = document.getElementById("zoom");
+      const zoomValue = document.getElementById("zoom-value");
 
       const scene = new THREE.Scene();
-      scene.background = null;
-
-      const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.01, 5000);
-      camera.position.set(0, 1.35, 4.2);
-
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
-        alpha: true,
         powerPreference: "high-performance"
       });
+
+      let lon = 0;
+      let lat = 0;
+      let phi = 0;
+      let theta = 0;
+      let isDragging = false;
+      let pointerX = 0;
+      let pointerY = 0;
+      let pointerLon = 0;
+      let pointerLat = 0;
+      let autoRotate = false;
+      let loaded = false;
+      let lastFrameTime = performance.now();
+
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       app.appendChild(renderer.domElement);
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.06;
-      controls.target.set(0, 0, 0);
-      controls.update();
+      const geometry = new THREE.SphereGeometry(500, 96, 48);
+      geometry.scale(-1, 1, 1);
 
-      const spark = new SparkRenderer({ renderer });
-      scene.add(spark);
+      const material = new THREE.MeshBasicMaterial({ color: 0x222831 });
+      const panorama = new THREE.Mesh(geometry, material);
+      scene.add(panorama);
 
-      const grid = new THREE.GridHelper(6, 24, 0x7dd3fc, 0x334155);
-      grid.material.transparent = true;
-      grid.material.opacity = 0.26;
-      grid.position.y = -0.02;
-      scene.add(grid);
-
-      const axes = new THREE.AxesHelper(1.2);
-      axes.position.set(-2.6, 0, -2.6);
-      scene.add(axes);
-
-      resetButton.addEventListener("click", resetView);
-      rotateButton.addEventListener("click", () => {
-        autoRotate = !autoRotate;
-        rotateButton.setAttribute("aria-pressed", String(autoRotate));
-      });
-      gridButton.addEventListener("click", () => {
-        grid.visible = !grid.visible;
-        axes.visible = grid.visible;
-        gridButton.setAttribute("aria-pressed", String(grid.visible));
-      });
-      orientationSelect.addEventListener("change", applyOrientation);
-
-      window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-
-      loadSplat();
+      loadTexture();
+      bindEvents();
 
       renderer.setAnimationLoop((time) => {
         const delta = Math.min((time - lastFrameTime) / 1000, 0.05);
         lastFrameTime = time;
 
-        if (autoRotate && splat) {
-          splat.rotation.y += delta * 0.32;
+        if (autoRotate && !isDragging) {
+          lon += delta * 4.5;
         }
 
-        controls.update();
+        updateCamera();
         renderer.render(scene, camera);
       });
 
-      async function loadSplat() {
-        setStatus("Yükleniyor", "SPZ dosyası tarayıcıya aktarılıyor...");
+      function loadTexture() {
+        setStatus("Yukleniyor", "Panorama dosyasi tarayiciya aktariliyor...");
 
-        try {
-          splat = new SplatMesh({
-            url: SPLAT_URL,
-            fileName: "ortam.spz",
-            onProgress: (event) => {
-              const total = event.total || KNOWN_FILE_SIZE;
-              if (total) {
-                const loaded = Math.min(event.loaded || 0, total);
-                setProgress((loaded / total) * 100);
-                setStatus("Yükleniyor", `${formatBytes(loaded)} / ${formatBytes(total)}`);
-              }
-            },
-            onLoad: (mesh) => {
-              setProgress(100);
-              setStatus("Hazır", `${formatNumber(mesh.numSplats || 0)} splat görüntüleniyor.`);
-            }
-          });
-
-          scene.add(splat);
-          await splat.initialized;
-          applyOrientation();
-          frameSplat(splat);
-        } catch (error) {
-          console.error(error);
-          messageEl.classList.add("error");
-          setStatus("Hata", "SPZ dosyası yüklenemedi. Uygulamayı bir yerel sunucudan açtığından emin ol.");
-        }
+        new THREE.TextureLoader().load(
+          IMAGE_URL,
+          (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+            material.map = texture;
+            material.color.set(0xffffff);
+            material.needsUpdate = true;
+            loaded = true;
+            setProgress(100);
+            setStatus("Hazir", "360 panorama gezilebilir.");
+          },
+          (event) => {
+            const total = event.total || IMAGE_SIZE;
+            const value = total ? Math.min(event.loaded / total, 1) * 100 : 35;
+            setProgress(value);
+            setStatus("Yukleniyor", `${formatBytes(event.loaded)} / ${formatBytes(total)}`);
+          },
+          (error) => {
+            console.error(error);
+            messageEl.classList.add("error");
+            setStatus("Hata", "ortam.png yuklenemedi. Dosya index.html ile ayni klasorde olmali.");
+          }
+        );
       }
 
-      function frameSplat(mesh) {
-        let box;
-        try {
-          box = mesh.getBoundingBox(true);
-        } catch {
-          resetView();
-          return;
+      function bindEvents() {
+        renderer.domElement.addEventListener("pointerdown", (event) => {
+          isDragging = true;
+          pointerX = event.clientX;
+          pointerY = event.clientY;
+          pointerLon = lon;
+          pointerLat = lat;
+          renderer.domElement.classList.add("is-dragging");
+          renderer.domElement.setPointerCapture(event.pointerId);
+        });
+
+        renderer.domElement.addEventListener("pointermove", (event) => {
+          if (!isDragging) {
+            return;
+          }
+
+          lon = pointerLon - (event.clientX - pointerX) * 0.1;
+          lat = pointerLat + (event.clientY - pointerY) * 0.1;
+        });
+
+        renderer.domElement.addEventListener("pointerup", (event) => {
+          isDragging = false;
+          renderer.domElement.classList.remove("is-dragging");
+          renderer.domElement.releasePointerCapture(event.pointerId);
+        });
+
+        renderer.domElement.addEventListener("pointercancel", () => {
+          isDragging = false;
+          renderer.domElement.classList.remove("is-dragging");
+        });
+
+        renderer.domElement.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          const nextFov = THREE.MathUtils.clamp(camera.fov + event.deltaY * 0.035, 35, 90);
+          setZoom(nextFov);
+        }, { passive: false });
+
+        window.addEventListener("keydown", (event) => {
+          if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") lon -= 3;
+          if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") lon += 3;
+          if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") lat += 3;
+          if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") lat -= 3;
+        });
+
+        window.addEventListener("resize", () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        resetButton.addEventListener("click", resetView);
+
+        rotateButton.addEventListener("click", () => {
+          autoRotate = !autoRotate;
+          rotateButton.setAttribute("aria-pressed", String(autoRotate));
+        });
+
+        fullscreenButton.addEventListener("click", async () => {
+          if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen();
+          } else {
+            await document.exitFullscreen();
+          }
+        });
+
+        zoomInput.addEventListener("input", () => {
+          setZoom(Number(zoomInput.value));
+        });
+      }
+
+      function updateCamera() {
+        lat = Math.max(-85, Math.min(85, lat));
+        phi = THREE.MathUtils.degToRad(90 - lat);
+        theta = THREE.MathUtils.degToRad(lon);
+
+        const x = 500 * Math.sin(phi) * Math.cos(theta);
+        const y = 500 * Math.cos(phi);
+        const z = 500 * Math.sin(phi) * Math.sin(theta);
+        camera.lookAt(x, y, z);
+
+        if (loaded) {
+          messageEl.textContent = `Aci: ${Math.round(((lon % 360) + 360) % 360)} derece · Zoom: ${Math.round(camera.fov)}`;
         }
-
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const radius = Math.max(size.x, size.y, size.z, 0.1) * 0.5;
-        const distance = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5));
-
-        controls.target.copy(center);
-        camera.near = Math.max(distance / 1000, 0.01);
-        camera.far = Math.max(distance * 20, 100);
-        camera.position.copy(center).add(new THREE.Vector3(distance * 0.58, distance * 0.38, distance * 1.25));
-        camera.updateProjectionMatrix();
-        controls.update();
-
-        grid.position.set(center.x, box.min.y, center.z);
-        grid.scale.setScalar(Math.max(radius / 3, 1));
-        axes.position.set(box.min.x, box.min.y, box.min.z);
       }
 
       function resetView() {
-        if (splat?.isInitialized) {
-          frameSplat(splat);
-          return;
-        }
-
-        controls.target.set(0, 0, 0);
-        camera.position.set(0, 1.35, 4.2);
-        controls.update();
+        lon = 0;
+        lat = 0;
+        setZoom(75);
       }
 
-      function applyOrientation() {
-        if (!splat) {
-          return;
-        }
-
-        splat.rotation.set(0, 0, 0);
-        if (orientationSelect.value === "x180") splat.rotation.x = Math.PI;
-        if (orientationSelect.value === "y180") splat.rotation.y = Math.PI;
-        if (orientationSelect.value === "z180") splat.rotation.z = Math.PI;
-        splat.updateMatrixWorld(true);
-
-        if (splat.isInitialized) {
-          frameSplat(splat);
-        }
+      function setZoom(value) {
+        camera.fov = THREE.MathUtils.clamp(value, 35, 90);
+        camera.updateProjectionMatrix();
+        zoomInput.value = String(Math.round(camera.fov));
+        zoomValue.textContent = String(Math.round(camera.fov));
       }
 
       function setStatus(status, message) {
@@ -444,10 +481,6 @@
         const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
         const value = bytes / Math.pow(1024, index);
         return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-      }
-
-      function formatNumber(value) {
-        return new Intl.NumberFormat("tr-TR").format(value);
       }
     </script>
   </body>
